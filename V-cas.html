@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Máy tính khoa học web — CAS nâng cao: định phân chính xác, đạo hàm bậc cao/riêng, ODE, solve</title>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1a2236; --text: #e2e8f0; --muted: #94a3b8;
+      --border: #334155; --primary: #2563eb; --ok: #22c55e; --err: #ef4444; --warn: #f59e0b; --accent: #60a5fa;
+    }
+    [data-theme="light"] {
+      --bg: #f7fafc; --panel: #ffffff; --text: #0f172a; --muted: #475569;
+      --border: #cbd5e1; --primary: #1d4ed8; --ok: #16a34a; --err: #dc2626; --warn: #d97706; --accent: #2563eb;
+    }
+    * { box-sizing: border-box }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial }
+    header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 2px solid var(--border); background: var(--panel) }
+    header h1 { margin: 0; font-size: 18px; flex: 1 }
+    .btn { background: var(--primary); color: #fff; border: none; border-radius: 4px; padding: 8px 12px; font-weight: 700; cursor: pointer }
+    .btn.secondary { background: #17304f; color: var(--text); border: 2px solid var(--border) }
+    .btn.danger { background: var(--err) }
+    .btn:hover { filter: brightness(1.05) }
+    .container { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px }
+    .left, .right { display: flex; flex-direction: column; gap: 12px }
+    .display-wrap { position: relative }
+    #display { background: var(--panel); border: 2px solid var(--border); min-height: 68px; padding: 12px; font-size: 22px; border-radius: 6px }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap }
+    .tool { background: #17304f; border: 2px solid var(--border); padding: 8px 10px; text-align: center; cursor: pointer; color: var(--text); font-weight: 600; border-radius: 4px }
+    .tool.active { background: var(--ok); color: #fff }
+    .keyboard { background: var(--panel); border: 2px solid var(--border); display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 10px; border-radius: 6px }
+    .group-title { grid-column: span 6; color: var(--muted); font-size: 12px; padding: 6px 4px 2px }
+    .key { background: #152234; border: 2px solid var(--border); padding: 10px; text-align: center; cursor: pointer; user-select: none; font-weight: 600; color: #cbd5e1; transition: transform .08s, background .15s; border-radius: 4px }
+    [data-theme="light"] .key { background: #eef2ff; color: var(--text) }
+    .key:hover { background: #1a2840; transform: translateY(-1px) }
+    .key-eq { grid-column: span 2; background: var(--primary); color: #fff; font-weight: 800 }
+    .panel { background: var(--panel); border: 2px solid var(--border); padding: 10px; border-radius: 6px }
+    .panel h3 { margin: 0 0 8px 0; font-size: 16px }
+    .list { display: flex; flex-direction: column; gap: 8px }
+    .item { border: 2px solid var(--border); background: #0f1528; padding: 8px; border-radius: 6px }
+    [data-theme="light"] .item { background: #f9fafb }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace }
+    .controls { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 6px }
+    .controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted) }
+    .controls input, .controls select { background: #0f1528; border: 2px solid var(--border); color: var(--text); padding: 8px; border-radius: 4px }
+    [data-theme="light"] .controls input, [data-theme="light"] .controls select { background: #ffffff }
+    #plotArea { width: 100%; height: 380px; border: 2px solid var(--border); background: #0b1324; border-radius: 6px }
+    [data-theme="light"] #plotArea { background: #ffffff }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap }
+    .input-inline { display: flex; gap: 8px; align-items: center }
+    .input-inline input { background: #0f1528; border: 2px solid var(--border); color: var(--text); padding: 8px; border-radius: 4px; width: 260px }
+    [data-theme="light"] .input-inline input { background: #fff }
+  </style>
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+  <!-- Core CAS libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12/lib/browser/math.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/nerdamer.core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Algebra.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Calculus.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Solve.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/algebrite/dist/algebrite.min.js"></script>
+
+  <!-- Numeric precision -->
+  <script src="https://cdn.jsdelivr.net/npm/decimal.js/decimal.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fraction.js/fraction.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/big-integer/BigInteger.min.js"></script>
+
+  <!-- Extra math -->
+  <script src="https://cdn.jsdelivr.net/npm/polynomial/polynomial.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/numeric/numeric-1.2.6.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sylvester/sylvester.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/math-expression-evaluator/dist/browser/math-expression-evaluator.min.js"></script>
+
+  <!-- Plot -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Máy tính khoa học web — CAS nâng cao</h1>
+    <button id="themeToggle" class="btn secondary">Light/Dark</button>
+    <button id="copyResultBtn" class="btn">Copy kết quả</button>
+    <div class="input-inline">
+      <input id="pasteInput" type="text" placeholder="Paste biểu thức ở đây rồi Enter" />
+      <button id="pasteApplyBtn" class="btn secondary">Chèn vào biểu thức</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="left">
+      <div class="display-wrap">
+        <div id="display"></div>
+      </div>
+
+      <div class="toolbar">
+        <div id="radBtn" class="tool active">RAD</div>
+        <div id="degBtn" class="tool">DEG</div>
+        <div id="plot2dBtn" class="tool active">Plot 2D</div>
+        <div id="plot3dBtn" class="tool">Plot 3D</div>
+
+        <div id="diffBtn" class="tool">d/dx</div>
+        <div id="highDiffBtn" class="tool">dⁿ/dxⁿ</div>
+        <div id="partialBtn" class="tool">∂/∂x</div>
+
+        <div id="intBtn" class="tool">∫ dx (bất định)</div>
+        <div id="defIntBtn" class="tool">∫ₐ^ᵦ (xác định)</div>
+
+        <div id="odeBtn" class="tool">ODE 1 (IF)</div>
+        <div id="solveBtn" class="tool">solve(…)</div>
+
+        <div id="simplifyBtn" class="tool">simplify(…)</div>
+        <div id="exportPngBtn" class="tool">Export PNG</div>
+      </div>
+
+      <div id="keyboard" class="keyboard">
+        <div class="group-title">Số & ký hiệu cơ bản</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key">+</div><div class="key">−</div><div class="key">C</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">×</div><div class="key">÷</div><div class="key">DEL</div>
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">(</div><div class="key">)</div><div class="key">.</div>
+        <div class="key">0</div><div class="key">x</div><div class="key">y</div><div class="key">^</div><div class="key">,</div><div class="key">|x|</div>
+        <div class="key key-eq" id="equals">=</div>
+
+        <div class="group-title">Lũy thừa & căn</div>
+        <div class="key">x²</div><div class="key">x³</div><div class="key">xʸ</div><div class="key">√(</div><div class="key">∛(</div><div class="key">!</div>
+
+        <div class="group-title">Lượng giác</div>
+        <div class="key">sin(</div><div class="key">cos(</div><div class="key">tan(</div><div class="key">sin⁻¹(</div><div class="key">cos⁻¹(</div><div class="key">tan⁻¹(</div>
+
+        <div class="group-title">Hyperbolic</div>
+        <div class="key">sinh(</div><div class="key">cosh(</div><div class="key">tanh(</div><div class="key">sech(</div><div class="key">csch(</div><div class="key">atanh(</div>
+
+        <div class="group-title">Logarit & mũ</div>
+        <div class="key">log(</div><div class="key">ln(</div><div class="key">eˣ</div><div class="key">10ˣ</div><div class="key">exp(</div><div class="key">pow(</div>
+        <div class="key">log_b(</div>
+
+        <div class="group-title">Số học nâng cao</div>
+        <div class="key">mod(</div><div class="key">gcd(</div><div class="key">lcm(</div><div class="key">ANS</div><div class="key">abs(</div><div class="key">sign(</div>
+
+        <div class="group-title">Ma trận & số phức</div>
+        <div class="key">[</div><div class="key">]</div><div class="key">;</div><div class="key">i</div><div class="key">det(</div><div class="key">inv(</div>
+        <div class="key">transpose(</div><div class="key">re(</div><div class="key">im(</div><div class="key">arg(</div><div class="key">conj(</div><div class="key">round(</div>
+
+        <div class="group-title">Thống kê & ký hiệu</div>
+        <div class="key">sum(</div><div class="key">mean(</div><div class="key">median(</div><div class="key">std(</div><div class="key">var(</div><div class="key">min(</div>
+        <div class="key">max(</div><div class="key">range(</div><div class="key">mode(</div><div class="key">prod(</div><div class="key">limit(</div><div class="key">∑(</div>
+        <div class="key">∏(</div><div class="key">simplify(</div><div class="key">solve(</div><div class="key">\sqrt{</div><div class="key">\sqrt[n]{</div><div class="key">}</div>
+
+        <div class="group-title">CAS nâng cao</div>
+        <div class="key">∂x(</div><div class="key">d^n/dx^n(</div><div class="key">intDef(</div><div class="key">ode(</div><div class="key">solve(</div><div class="key">limit(</div>
+      </div>
+
+      <div class="panel">
+        <h3>Kết quả</h3>
+        <div id="resultTex" class="mono"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Cài đặt vẽ đồ thị</h3>
+        <div class="controls">
+          <label>x min<input id="xmin" type="number" value="-10"></label>
+          <label>x max<input id="xmax" type="number" value="10"></label>
+          <label>y min<input id="ymin" type="number" value="-10"></label>
+          <label>y max<input id="ymax" type="number" value="10"></label>
+          <label>bước x<input id="xstep" type="number" value="0.1" step="0.1"></label>
+          <label>bước y<input id="ystep" type="number" value="0.5" step="0.1"></label>
+          <label>CAS ưu tiên
+            <select id="casSelect">
+              <option value="nerdamer">Nerdamer</option>
+              <option value="algebrite">Algebrite</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions" style="margin-top:8px">
+          <button id="saveProjectBtn" class="btn secondary">Lưu vào Project (IndexedDB)</button>
+          <button id="exportPngBtn2" class="btn secondary">Export PNG nhanh</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Đồ thị (2D: y=f(x) | 3D: z=f(x,y))</h3>
+        <div id="plotArea"></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <h3>Nhật ký</h3>
+        <div id="logList" class="list"></div>
+      </div>
+      <div class="panel">
+        <h3>Lịch sử
+          <button id="clearHistoryBtn" class="btn danger" title="Xóa toàn bộ lịch sử trong localStorage">Xóa lịch sử</button>
+        </h3>
+        <div id="historyList" class="list"></div>
+      </div>
+      <div class="panel">
+        <h3>Sơ đồ bước tính</h3>
+        <div id="stepsList" class="list"></div>
+      </div>
+      <div class="panel">
+        <h3>Projects (IndexedDB)</h3>
+        <div class="input-inline" style="margin-bottom:8px">
+          <input id="projectNameInput" type="text" placeholder="Tên project..." />
+          <button id="loadProjectsBtn" class="btn secondary">Tải danh sách</button>
+        </div>
+        <div id="projectsList" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const themeToggle = document.getElementById('themeToggle');
+    const copyResultBtn = document.getElementById('copyResultBtn');
+    const pasteInput = document.getElementById('pasteInput');
+    const pasteApplyBtn = document.getElementById('pasteApplyBtn');
+
+    const display = document.getElementById('display');
+    const keyboard = document.getElementById('keyboard');
+    const equalsBtn = document.getElementById('equals');
+    const resultTex = document.getElementById('resultTex');
+    const logList = document.getElementById('logList');
+    const historyList = document.getElementById('historyList');
+    const stepsList = document.getElementById('stepsList');
+    const plotArea = document.getElementById('plotArea');
+
+    const radBtn = document.getElementById('radBtn');
+    const degBtn = document.getElementById('degBtn');
+    const plot2dBtn = document.getElementById('plot2dBtn');
+    const plot3dBtn = document.getElementById('plot3dBtn');
+
+    const diffBtn = document.getElementById('diffBtn');
+    const highDiffBtn = document.getElementById('highDiffBtn');
+    const partialBtn = document.getElementById('partialBtn');
+    const intBtn = document.getElementById('intBtn');
+    const defIntBtn = document.getElementById('defIntBtn');
+    const odeBtn = document.getElementById('odeBtn');
+    const solveBtn = document.getElementById('solveBtn');
+    const simplifyBtn = document.getElementById('simplifyBtn');
+    const exportPngBtn = document.getElementById('exportPngBtn');
+    const exportPngBtn2 = document.getElementById('exportPngBtn2');
+
+    const xmin = document.getElementById('xmin');
+    const xmax = document.getElementById('xmax');
+    const ymin = document.getElementById('ymin');
+    const ymax = document.getElementById('ymax');
+    const xstep = document.getElementById('xstep');
+    const ystep = document.getElementById('ystep');
+    const casSelect = document.getElementById('casSelect');
+
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const saveProjectBtn = document.getElementById('saveProjectBtn');
+    const projectNameInput = document.getElementById('projectNameInput');
+    const loadProjectsBtn = document.getElementById('loadProjectsBtn');
+    const projectsList = document.getElementById('projectsList');
+
+    // State
+    let exprRaw = "";
+    let angleMode = "rad"; // 'rad' | 'deg'
+    let plotMode = "2d";   // '2d' | '3d'
+    let lastAns = null;
+    const HISTORY_KEY = 'calc_history_cas_advanced_v1';
+    let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+
+    // Theme toggle
+    themeToggle.addEventListener('click', () => {
+      const cur = document.body.getAttribute('data-theme') || 'dark';
+      document.body.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+
+    // Copy result
+    copyResultBtn.addEventListener('click', async () => {
+      const text = resultTex.textContent.trim();
+      if (!text) return;
+      try { await navigator.clipboard.writeText(text); toast('[OK] Đã copy kết quả'); }
+      catch { toast('[ERR] Copy thất bại'); }
+    });
+
+    // Paste support
+    pasteApplyBtn.addEventListener('click', () => {
+      const s = pasteInput.value || '';
+      if (!s.trim()) return; insertAt(s); renderDisplay();
+    });
+    pasteInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') pasteApplyBtn.click(); });
+    window.addEventListener('paste', (e) => {
+      const s = (e.clipboardData || window.clipboardData).getData('text');
+      if (s) { insertAt(s); renderDisplay(); toast('[OK] Pasted vào biểu thức'); }
+    });
+
+    // Helpers
+    function toast(msg) {
+      const div = document.createElement('div'); div.className = 'item mono'; div.textContent = msg; logList.prepend(div);
+    }
+    function insertAt(text) { exprRaw += text; }
+    function deleteLast() { exprRaw = exprRaw.slice(0, -1); }
+
+    function toMathJs(s) {
+      const ansVal = lastAns !== null ? String(lastAns) : 'ANS';
+      let out = s.replace(/\bANS\b/g, ansVal);
+      out = out
+        .replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
+        .replace(/π/g, 'pi').replace(/\\pi/g, 'pi')
+        .replace(/√\(/g, 'sqrt(').replace(/∛\(/g, 'cbrt(')
+        .replace(/x²/g, 'x^2').replace(/x³/g, 'x^3').replace(/xʸ/g, 'x^y')
+        .replace(/\|x\|/g, 'abs(x)')
+        .replace(/sin⁻¹\(/g, 'asin(').replace(/cos⁻¹\(/g, 'acos(').replace(/tan⁻¹\(/g, 'atan(')
+        .replace(/sech\(/g, '1/cosh(').replace(/csch\(/g, '1/sinh(')
+        .replace(/eˣ/g, 'exp(').replace(/10ˣ/g, '10^').replace(/ln\(/g, 'log(')
+        .replace(/nCr\(/g, 'combinations(').replace(/nPr\(/g, 'permutations(')
+        .replace(/log_b\(/g, 'log(')
+        .replace(/mod\(/g, 'mod(').replace(/gcd\(/g, 'gcd(').replace(/lcm\(/g, 'lcm(');
+      out = out.replace(/∑\(/g, 'Sigma(').replace(/∏\(/g, 'Pi(');
+      return out;
+    }
+
+    function renderDisplay() {
+      try {
+        const node = math.parse(toMathJs(exprRaw));
+        const tex = node.toTex({ parenthesis: 'keep' });
+        katex.render(tex, display, { throwOnError: false });
+      } catch {
+        const temp = exprRaw.replace(/π/g, '\\pi').replace(/−/g, '-');
+        katex.render(temp, display, { throwOnError: false });
+      }
+    }
+
+    function addHistory(input, output) {
+      history.unshift({ input, output, ts: Date.now() });
+      if (history.length > 800) history.pop();
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      renderHistory();
+    }
+    function renderHistory() {
+      historyList.innerHTML = '';
+      history.forEach(h => {
+        const div = document.createElement('div'); div.className = 'item mono';
+        const date = new Date(h.ts);
+        div.textContent = `${h.input} = ${h.output}   • ${date.toLocaleString()}`;
+        historyList.appendChild(div);
+      });
+    }
+    function clearSteps() { stepsList.innerHTML = ''; }
+    function addStep(label, tex) {
+      const div = document.createElement('div'); div.className = 'item';
+      const title = document.createElement('div'); title.style.color = 'var(--text)'; title.style.fontWeight = '700'; title.textContent = label;
+      const mathDiv = document.createElement('div'); katex.render(tex, mathDiv, { throwOnError: false });
+      div.appendChild(title); div.appendChild(mathDiv); stepsList.appendChild(div);
+    }
+
+    // Angle mode
+    function applyDegToTrig(exprJs) {
+      const toRadWrap = inner => `(pi/180)*(${inner})`;
+      return exprJs
+        .replace(/(?<!a)sin\(([^)]+)\)/g, (_, p) => `sin(${toRadWrap(p)})`)
+        .replace(/(?<!a)cos\(([^)]+)\)/g, (_, p) => `cos(${toRadWrap(p)})`)
+        .replace(/(?<!a)tan\(([^)]+)\)/g, (_, p) => `tan(${toRadWrap(p)})`)
+        .replace(/sinh\(([^)]+)\)/g, (_, p) => `sinh(${toRadWrap(p)})`)
+        .replace(/cosh\(([^)]+)\)/g, (_, p) => `cosh(${toRadWrap(p)})`)
+        .replace(/tanh\(([^)]+)\)/g, (_, p) => `tanh(${toRadWrap(p)})`);
+    }
+
+    // Utility
+    function splitTopLevel(s) {
+      const out = []; let level = 0; let cur = '';
+      for (let i=0;i<s.length;i++){
+        const ch = s[i];
+        if (ch === '(' || ch === '[' || ch === '{') level++;
+        else if (ch === ')' || ch === ']' || ch === '}') level--;
+        if (ch === ',' && level === 0) { out.push(cur); cur=''; } else cur += ch;
+      }
+      if (cur) out.push(cur);
+      return out;
+    }
+
+    // Sigma/Pi
+    function evalSigmaPi(name, iSym, a, b, expr, scope = {}) {
+      let acc = (name === 'Sigma') ? 0 : 1;
+      const compiled = math.parse(expr).compile();
+      const start = Math.round(a), end = Math.round(b);
+      if (!isFinite(start) || !isFinite(end)) throw new Error('Giới hạn không hợp lệ cho tổng/tích');
+      for (let i = start; i <= end; i++) {
+        const val = compiled.evaluate({ ...scope, [iSym]: i });
+        if (name === 'Sigma') acc += val; else acc *= val;
+      }
+      return acc;
+    }
+
+    // Definite integral: exact via Algebrite.defint(f, x, a, b)
+    function handleDefInt(raw) {
+      // accept forms: intDef(f, x, a, b) OR ∫ₐ^ᵦ f(x) dx -> as intDef(f,x,a,b)
+      const m = raw.match(/intDef\((.*)\)/);
+      if (!m) return false;
+      const args = splitTopLevel(m[1]);
+      if (args.length < 4) throw new Error('intDef yêu cầu: intDef(f, x, a, b)');
+      const f = args[0].trim();
+      const x = args[1].trim();
+      const a = args[2].trim();
+      const b = args[3].trim();
+      const jsF = toMathJs(f);
+      const jsA = toMathJs(a);
+      const jsB = toMathJs(b);
+      const A = Algebrite.defint(jsF, x, jsA, jsB).toString();
+      const tex = `${nerdamer(jsF).toTeX()}\\quad\\text{với } ${x}\\in[${nerdamer(jsA).toTeX()},${nerdamer(jsB).toTeX()}]`;
+      addStep('Định phân chính xác (Algebrite)', tex);
+      katex.render(`\\int_{${nerdamer(jsA).toTeX()}}^{${nerdamer(jsB).toTeX()}} ${nerdamer(jsF).toTeX()}\\, d${x} = ${nerdamer(A).toTeX()}`, resultTex, { throwOnError: false });
+      addHistory(raw, A);
+      lastAns = A;
+      return true;
+    }
+
+    // High-order derivative d^n/dx^n of f
+    function handleHighDeriv(raw) {
+      // d^n/dx^n(f, x, n)
+      const m = raw.match(/d\^n\/dx\^n\((.*)\)/);
+      if (!m) return false;
+      const args = splitTopLevel(m[1]);
+      if (args.length < 3) throw new Error('d^n/dx^n yêu cầu: d^n/dx^n(f, x, n)');
+      const f = toMathJs(args[0].trim());
+      const x = args[1].trim();
+      const n = parseInt(args[2].trim(), 10);
+      if (!(n > 0)) throw new Error('Bậc n phải là số nguyên dương');
+      let d = nerdamer(f);
+      for (let k=0;k<n;k++) d = nerdamer.diff(d, x);
+      const dTex = d.toTeX();
+      addStep(`Đạo hàm bậc ${n}`, dTex);
+      katex.render(`\\frac{d^{${n}}}{d${x}^{${n}}}\\left(${nerdamer(f).toTeX()}\\right) = ${dTex}`, resultTex, { throwOnError: false });
+      addHistory(raw, d.toString());
+      lastAns = d.toString();
+      return true;
+    }
+
+    // Partial derivative ∂/∂x of f
+    function handlePartial(raw) {
+      // ∂x(f) or ∂/∂x(f)
+      let m = raw.match(/∂x\((.*)\)/) || raw.match(/∂\/∂([a-zA-Z]+)\((.*)\)/);
+      if (!m) return false;
+      let xVar, f;
+      if (m[1] && m[0].startsWith('∂x(')) {
+        xVar = 'x'; f = m[1];
+      } else {
+        xVar = m[1]; f = m[2];
+      }
+      const js = toMathJs(f);
+      const d = nerdamer.diff(js, xVar);
+      const dTex = d.toTeX();
+      addStep(`Đạo hàm riêng theo ${xVar}`, dTex);
+      katex.render(`\\frac{\\partial}{\\partial ${xVar}}\\left(${nerdamer(js).toTeX()}\\right) = ${dTex}`, resultTex, { throwOnError: false });
+      addHistory(raw, d.toString());
+      lastAns = d.toString();
+      return true;
+    }
+
+    // ODE first-order linear using integrating factor:
+    // expect: ode(a(x), b(x), c(x), x) representing a(x) y' + b(x) y = c(x)
+    function handleOde(raw) {
+      const m = raw.match(/ode\((.*)\)/);
+      if (!m) return false;
+      const args = splitTopLevel(m[1]);
+      if (args.length < 4) throw new Error('ode yêu cầu: ode(a(x), b(x), c(x), x) với a y\' + b y = c');
+      const a = toMathJs(args[0].trim());
+      const b = toMathJs(args[1].trim());
+      const c = toMathJs(args[2].trim());
+      const x = args[3].trim();
+      // Normalize to y' + P(x)y = Q(x)
+      // y' + (b/a) y = (c/a)
+      const Px = nerdamer(`(${b})/(${a})`, {}, ['x']).toString();
+      const Qx = nerdamer(`(${c})/(${a})`, {}, ['x']).toString();
+      // Integrating factor μ(x) = exp( ∫ P(x) dx )
+      const mu = Algebrite.exp(Algebrite.integral(Px, x)).toString();
+      // Solution: y * μ = ∫ μ Q dx + C  => y = ( ∫ μ Q dx + C ) / μ
+      const integrand = nerdamer(`(${mu})*(${Qx})`, {}, [x]).toString();
+      const intTerm = Algebrite.integral(integrand, x).toString();
+      const ySol = nerdamer(`((${intTerm}) + C)/(${mu})`).toTeX();
+      addStep('ODE tuyến tính bậc nhất (IF)', `\\mu(x)=\\exp\\left(\\int ${nerdamer(Px).toTeX()}\\,dx\\right)`);
+      katex.render(`\\text{Nghiệm tổng quát: } y(x)= ${ySol}`, resultTex, { throwOnError: false });
+      addHistory(raw, ySol);
+      lastAns = ySol;
+      return true;
+    }
+
+    // Solve symbolic: solve(expr, var) or solve(eq, var)
+    function handleSolve(raw) {
+      const m = raw.match(/solve\((.*)\)/);
+      if (!m) return false;
+      const args = splitTopLevel(m[1]);
+      if (args.length < 2) throw new Error('solve yêu cầu: solve(expr hoặc eq, biến)');
+      let exprOrEq = args[0].trim();
+      const varName = (args[1] || 'x').trim();
+      // If eq contains "=", bring to one side
+      const eqMatch = exprOrEq.match(/(.+)=(.+)/);
+      if (eqMatch) {
+        const left = toMathJs(eqMatch[1]);
+        const right = toMathJs(eqMatch[2]);
+        exprOrEq = nerdamer(`(${left})-(${right})`).toString();
+      } else {
+        exprOrEq = toMathJs(exprOrEq);
+      }
+      let solsTex = '';
+      try {
+        const sols = nerdamer.solve(exprOrEq, varName);
+        solsTex = sols.toTeX ? sols.toTeX() : sols.toString();
+      } catch {
+        try {
+          const s2 = Algebrite.roots(exprOrEq).toString();
+          solsTex = nerdamer(s2).toTeX();
+        } catch {
+          throw new Error('Không giải được biểu thức này');
+        }
+      }
+      addStep('Giải phương trình (symbolic)', solsTex);
+      katex.render(`\\text{solve}\\;\\{ ${nerdamer(exprOrEq).toTeX()}=0 \\} \\;\\text{theo } ${varName}\\;\\Rightarrow\\; ${solsTex}`, resultTex, { throwOnError: false });
+      addHistory(raw, solsTex);
+      lastAns = solsTex;
+      return true;
+    }
+
+    // Plot
+    function plotAuto(exprText) {
+      let js = toMathJs(exprText);
+      if (angleMode === 'deg') js = applyDegToTrig(js);
+      let node; try { node = math.parse(js); } catch { Plotly.purge(plotArea); return; }
+      const syms = node.filter(n => n.isSymbolNode).map(n => n.name);
+      const hasX = syms.includes('x'); const hasY = syms.includes('y');
+
+      Plotly.purge(plotArea);
+      const xMin = parseFloat(xmin.value), xMax = parseFloat(xmax.value);
+      const yMin = parseFloat(ymin.value), yMax = parseFloat(ymax.value);
+      const dx = parseFloat(xstep.value), dy = parseFloat(ystep.value);
+
+      if (plotMode === '3d' && hasX && hasY) {
+        const compiled = node.compile();
+        const xs = []; const ys = [];
+        for (let x = xMin; x <= xMax + 1e-9; x += dy) xs.push(+x.toFixed(6));
+        for (let y = yMin; y <= yMax + 1e-9; y += dy) ys.push(+y.toFixed(6));
+        const Z = [];
+        for (let i = 0; i < xs.length; i++) {
+          const row = [];
+          for (let j = 0; j < ys.length; j++) {
+            let z; try { z = compiled.evaluate({ x: xs[i], y: ys[j] }); } catch { z = NaN; }
+            row.push(isFinite(z) ? z : null);
+          }
+          Z.push(row);
+        }
+        const surf = { type: 'surface', x: xs, y: ys, z: Z, colorscale: 'Viridis' };
+        Plotly.newPlot(plotArea, [surf], { title: 'Đồ thị 3D', scene: { xaxis: { title: 'x' }, yaxis: { title: 'y' }, zaxis: { title: 'z' } }, margin: { l: 0, r: 0, t: 30, b: 0 } });
+      } else if (hasX && !hasY) {
+        const compiled = node.compile();
+        const xs = []; const ys = [];
+        for (let x = xMin; x <= xMax + 1e-9; x += dx) {
+          let y; try { y = compiled.evaluate({ x }); } catch { y = NaN; }
+          if (typeof y === 'number' && isFinite(y)) { xs.push(+x.toFixed(6)); ys.push(y); }
+        }
+        Plotly.newPlot(plotArea, [{ type: 'scatter', mode: 'lines', x: xs, y: ys, line: { color: 'var(--accent)' } }],
+          { title: 'Đồ thị 2D', xaxis: { title: 'x' }, yaxis: { title: 'y' }, margin: { l: 40, r: 10, t: 30, b: 40 } });
+      } else {
+        Plotly.newPlot(plotArea, [], { title: 'Không có biến phù hợp để vẽ (cần x cho 2D hoặc x,y cho 3D)', margin: { t: 30 } });
+      }
+    }
+
+    // Export PNG
+    async function exportPNG() {
+      try {
+        const url = await Plotly.toImage(plotArea, { format: 'png', width: 1280, height: 720 });
+        const a = document.createElement('a'); a.href = url; a.download = 'plot.png'; a.click();
+        toast('[OK] Đã xuất PNG');
+      } catch { toast('[ERR] Không thể export PNG'); }
+    }
+    exportPngBtn.addEventListener('click', exportPNG);
+    exportPngBtn2.addEventListener('click', exportPNG);
+
+    // Compute base "="
+    function compute() {
+      if (!exprRaw.trim()) return;
+      clearSteps();
+      try {
+        let exprJs = toMathJs(exprRaw);
+        exprJs = exprJs.replace(/exp\(([^)]*)$/,'exp($1)');
+
+        // Handle special forms before general compute
+        if (/intDef\(/.test(exprRaw)) { try { if (handleDefInt(exprRaw)) return; } catch (e) { toast('[ERR] ' + e.message); } }
+        if (/d\^n\/dx\^n\(/.test(exprRaw)) { try { if (handleHighDeriv(exprRaw)) return; } catch (e) { toast('[ERR] ' + e.message); } }
+        if (/∂x\(/.test(exprRaw) || /∂\/∂/.test(exprRaw)) { try { if (handlePartial(exprRaw)) return; } catch (e) { toast('[ERR] ' + e.message); } }
+        if (/ode\(/.test(exprRaw)) { try { if (handleOde(exprRaw)) return; } catch (e) { toast('[ERR] ' + e.message); } }
+        if (/solve\(/.test(exprRaw)) { try { if (handleSolve(exprRaw)) return; } catch (e) { toast('[ERR] ' + e.message); } }
+
+        // Sigma/Pi
+        if (/Sigma\(/.test(exprJs) || /Pi\(/.test(exprJs)) {
+          const parseCall = (name) => {
+            const m = exprJs.match(new RegExp(name + "\\((.*)\\)")); if (!m) return null;
+            const args = splitTopLevel(m[1]);
+            if (args.length < 4) throw new Error('Sigma/Pi yêu cầu 4 tham số: biến, a, b, biểu thức');
+            return { name, iSym: args[0].trim(), a: math.evaluate(args[1]), b: math.evaluate(args[2]), inner: args.slice(3).join(',') };
+          };
+          const call = parseCall('Sigma') || parseCall('Pi'); if (call) {
+            const value = evalSigmaPi(call.name, call.iSym, call.a, call.b, call.inner);
+            katex.render(`${call.name === 'Sigma' ? '\\sum' : '\\prod'}\\;=\\;${String(value)}`, resultTex, { throwOnError: false });
+            addHistory(exprRaw, String(value)); lastAns = value; renderDisplay(); return;
+          }
+        }
+
+        // Angle mode
+        if (angleMode === 'deg') exprJs = applyDegToTrig(exprJs);
+
+        // General compute with math.js
+        const node = math.parse(exprJs);
+        const simplified = math.simplify(node);
+
+        const hasSymbol = node.filter(n => n.isSymbolNode).length > 0;
+        let value = null;
+        if (!hasSymbol) {
+          try { value = simplified.evaluate({}); } catch { value = math.evaluate(exprJs); }
+        }
+
+        // Secondary simplify via CAS
+        try {
+          const s2 = nerdamer(exprJs).simplify().toTeX();
+          addStep('Rút gọn (CAS)', s2);
+        } catch {}
+
+        const texOrig = node.toTex({ parenthesis: 'keep' });
+        const texSimpl = simplified.toTex({ parenthesis: 'keep' });
+        const texResult = hasSymbol ? texSimpl : math.parse(String(value)).toTex();
+
+        katex.render(`${texOrig} = ${texResult}`, resultTex, { throwOnError: false });
+        addHistory(exprRaw, hasSymbol ? texSimpl : String(value));
+        lastAns = hasSymbol ? texSimpl : value;
+
+        addStep('Biểu thức ban đầu', texOrig);
+        if (texSimpl !== texOrig) addStep('Rút gọn (math.js)', texSimpl);
+        renderDisplay();
+        plotAuto(exprRaw);
+      } catch (err) {
+        toast(`[ERR] ${err.message || 'Không rõ lỗi'}`);
+        resultTex.textContent = 'Lỗi cú pháp hoặc phép tính không hỗ trợ.';
+      }
+    }
+
+    // Toolbar actions
+    simplifyBtn.addEventListener('click', () => {
+      if (!exprRaw.trim()) return;
+      try {
+        const js = toMathJs(exprRaw);
+        const s1 = math.simplify(math.parse(js)).toTex({ parenthesis: 'keep' });
+        addStep('Simplify (math.js)', s1);
+        try {
+          const s2 = nerdamer(js).simplify().toTeX();
+          addStep('Simplify (CAS)', s2);
+          katex.render(`${s2}`, resultTex, { throwOnError: false });
+          addHistory(`simplify(${exprRaw})`, s2);
+          lastAns = nerdamer(js).simplify().toString();
+        } catch {
+          katex.render(`${s1}`, resultTex, { throwOnError: false });
+          addHistory(`simplify(${exprRaw})`, s1);
+          lastAns = math.simplify(math.parse(js)).toString();
+        }
+      } catch { toast('[ERR] Không simplify được'); }
+    });
+
+    diffBtn.addEventListener('click', () => {
+      if (!exprRaw.trim()) return;
+      try {
+        const js = toMathJs(exprRaw);
+        const d = nerdamer.diff(js, 'x');
+        const dTex = d.toTeX();
+        addStep('Đạo hàm d/dx', dTex);
+        katex.render(`\\frac{d}{dx}\\left(${nerdamer(js).toTeX()}\\right) = ${dTex}`, resultTex, { throwOnError: false });
+        addHistory(`diff(${exprRaw})`, dTex);
+        lastAns = d.toString();
+      } catch { toast('[ERR] Không đạo hàm được'); }
+    });
+
+    highDiffBtn.addEventListener('click', () => {
+      const promptStr = 'Nhập dạng: d^n/dx^n(f, x, n)';
+      insertAt('d^n/dx^n('); renderDisplay(); toast(promptStr);
+    });
+
+    partialBtn.addEventListener('click', () => {
+      insertAt('∂x('); renderDisplay(); toast('Dùng: ∂x(f) hoặc ∂/∂y(f)');
+    });
+
+    intBtn.addEventListener('click', () => {
+      if (!exprRaw.trim()) return;
+      try {
+        const js = toMathJs(exprRaw);
+        const I = nerdamer.integrate(js, 'x');
+        const ITex = I.toTeX();
+        addStep('Tích phân bất định ∫ dx', ITex + ' + C');
+        katex.render(`\\int ${nerdamer(js).toTeX()}\\,dx = ${ITex} + C`, resultTex, { throwOnError: false });
+        addHistory(`int(${exprRaw})`, ITex + ' + C');
+        lastAns = I.toString();
+      } catch { toast('[ERR] Không tích phân bất định được'); }
+    });
+
+    defIntBtn.addEventListener('click', () => {
+      insertAt('intDef(f(x), x, a, b)'); renderDisplay();
+      toast('Dùng: intDef(f, x, a, b) — dùng Algebrite.defint để ra chính xác');
+    });
+
+    odeBtn.addEventListener('click', () => {
+      insertAt('ode(a(x), b(x), c(x), x)'); renderDisplay();
+      toast('Dùng: ode(a,b,c,x) với a y\' + b y = c (IF: integrating factor)');
+    });
+
+    solveBtn.addEventListener('click', () => {
+      insertAt('solve(f(x)=0, x)'); renderDisplay();
+      toast('Dùng: solve(expr hoặc phương trình, biến)');
+    });
+
+    exportPngBtn.addEventListener('click', exportPNG);
+    exportPngBtn2.addEventListener('click', exportPNG);
+
+    // "=" and keyboard
+    if (equalsBtn) equalsBtn.addEventListener('click', () => {
+      compute();
+    });
+    keyboard.querySelectorAll('.key').forEach(btn => {
+      const text = btn.textContent;
+      if (btn.id === 'equals') return;
+      btn.addEventListener('click', () => {
+        if (text === 'C') { exprRaw = ''; resultTex.innerHTML = ''; clearSteps(); Plotly.purge(plotArea); renderDisplay(); return; }
+        if (text === 'DEL') { deleteLast(); renderDisplay(); return; }
+        if (text === 'x²') { insertAt('x^2'); renderDisplay(); return; }
+        if (text === 'x³') { insertAt('x^3'); renderDisplay(); return; }
+        if (text === 'xʸ') { insertAt('x^y'); renderDisplay(); return; }
+        if (text === '√(') { insertAt('√('); renderDisplay(); return; }
+        if (text === '∛(') { insertAt('∛('); renderDisplay(); return; }
+        if (text === 'ANS') { insertAt('ANS'); renderDisplay(); return; }
+        if (text === 'log_b(') { insertAt('log_b('); renderDisplay(); return; }
+        if (text === '∑(') { insertAt('∑(i,1,10, x)'); renderDisplay(); return; }
+        if (text === '∏(') { insertAt('∏(i,1,5, x)'); renderDisplay(); return; }
+        if (text === 'limit(') { insertAt("limit(x->0, sin(x)/x)"); renderDisplay(); return; }
+        if (text === 'simplify(') { insertAt("simplify("); renderDisplay(); return; }
+        if (text === '∂x(') { insertAt('∂x('); renderDisplay(); return; }
+        if (text === 'd^n/dx^n(') { insertAt('d^n/dx^n(f, x, n)'); renderDisplay(); return; }
+        if (text === 'intDef(') { insertAt('intDef(f(x), x, a, b)'); renderDisplay(); return; }
+        if (text === 'ode(') { insertAt('ode(a(x), b(x), c(x), x)'); renderDisplay(); return; }
+        if (text === 'solve(') { insertAt('solve(f(x)=0, x)'); renderDisplay(); return; }
+        insertAt(text); renderDisplay();
+      });
+    });
+
+    // Toggles
+    radBtn.addEventListener('click', () => { angleMode = 'rad'; radBtn.classList.add('active'); degBtn.classList.remove('active'); if (exprRaw.trim()) plotAuto(exprRaw); });
+    degBtn.addEventListener('click', () => { angleMode = 'deg'; degBtn.classList.add('active'); radBtn.classList.remove('active'); if (exprRaw.trim()) plotAuto(exprRaw); });
+    plot2dBtn.addEventListener('click', () => { plotMode = '2d'; plot2dBtn.classList.add('active'); plot3dBtn.classList.remove('active'); if (exprRaw.trim()) plotAuto(exprRaw); });
+    plot3dBtn.addEventListener('click', () => { plotMode = '3d'; plot3dBtn.classList.add('active'); plot2dBtn.classList.remove('active'); if (exprRaw.trim()) plotAuto(exprRaw); });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { equalsBtn.click(); e.preventDefault(); }
+      else if (e.key === 'Backspace') { deleteLast(); renderDisplay(); e.preventDefault(); }
+    });
+
+    // IndexedDB Projects
+    let db; const DB_NAME = 'calc_projects_db_cas_advanced'; const STORE = 'projects';
+    initDB();
+    function initDB() {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true }); };
+      req.onsuccess = () => { db = req.result; };
+      req.onerror = () => { toast('[ERR] IndexedDB không khả dụng'); };
+    }
+    function saveProject() {
+      if (!db) { toast('[ERR] DB chưa sẵn sàng'); return; }
+      const name = projectNameInput.value.trim() || `Project ${new Date().toLocaleString()}`;
+      const item = { name, expr: exprRaw, angleMode, plotMode, ranges: {
+        xmin: xmin.value, xmax: xmax.value, ymin: ymin.value, ymax: ymax.value, xstep: xstep.value, ystep: ystep.value
+      }, ts: Date.now() };
+      const tx = db.transaction(STORE, 'readwrite'); tx.objectStore(STORE).add(item);
+      tx.oncomplete = () => { toast('[OK] Đã lưu project'); loadProjects(); };
+      tx.onerror = () => { toast('[ERR] Lưu project thất bại'); };
+    }
+    function loadProjects() {
+      if (!db) { toast('[ERR] DB chưa sẵn sàng'); return; }
+      projectsList.innerHTML = '';
+      const tx = db.transaction(STORE, 'readonly'); const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => {
+        const arr = req.result || []; arr.sort((a,b)=>b.ts-a.ts);
+        arr.forEach(p => {
+          const div = document.createElement('div'); div.className = 'item mono';
+          div.innerHTML = `<b>${p.name}</b> • ${new Date(p.ts).toLocaleString()}<br/>expr: ${p.expr}<br/>plot: ${p.plotMode.toUpperCase()}, angle: ${p.angleMode}`;
+          const actions = document.createElement('div'); actions.style.marginTop = '6px';
+          const btnLoad = document.createElement('button'); btnLoad.className = 'btn secondary'; btnLoad.textContent = 'Tải vào';
+          btnLoad.onclick = () => {
+            exprRaw = p.expr; angleMode = p.angleMode; plotMode = p.plotMode;
+            xmin.value = p.ranges.xmin; xmax.value = p.ranges.xmax; ymin.value = p.ranges.ymin; ymax.value = p.ranges.ymax;
+            xstep.value = p.ranges.xstep; ystep.value = p.ranges.ystep;
+            radBtn.classList.toggle('active', angleMode === 'rad'); degBtn.classList.toggle('active', angleMode === 'deg');
+            plot2dBtn.classList.toggle('active', plotMode === '2d'); plot3dBtn.classList.toggle('active', plotMode === '3d');
+            renderDisplay(); plotAuto(exprRaw); toast('[OK] Đã tải project');
+          };
+          const btnDel = document.createElement('button'); btnDel.className = 'btn danger'; btnDel.textContent = 'Xóa';
+          btnDel.onclick = () => { const tx2 = db.transaction(STORE, 'readwrite'); tx2.objectStore(STORE).delete(p.id); tx2.oncomplete = () => { toast('[OK] Đã xóa project'); loadProjects(); }; };
+          actions.appendChild(btnLoad); actions.appendChild(btnDel);
+          div.appendChild(actions); projectsList.appendChild(div);
+        });
+      };
+    }
+    saveProjectBtn.addEventListener('click', saveProject);
+    loadProjectsBtn.addEventListener('click', loadProjects);
+
+    // Clear history
+    clearHistoryBtn.addEventListener('click', () => {
+      history = []; localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      renderHistory(); toast('[OK] Đã xóa toàn bộ lịch sử');
+    });
+
+    // Init
+    renderHistory();
+    renderDisplay();
+  </script>
+</body>
+</html>
